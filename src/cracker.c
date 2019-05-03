@@ -15,27 +15,6 @@ typedef struct Candidate {
 }Candidate;
 
 
-
-int main(int argc, char *argv[]) {
-
-    //initialisation
-
-    //thread de lecture
-
-    //producteur-consommateur #1
-
-    //producteur-consommateur #2
-
-    //interaction LL
-
-    //ecriture
-
-    printf("Test starto !\n");
-
-    printf("Test complete !\n");
-    return EXIT_SUCCESS;
-}
-
 /*pre : head != NULL, head->password != NULL, pwd != NULL
   post :Checks if a password is the be added to the list of candidates by comparing his length to to the current candidates length.
 
@@ -58,4 +37,45 @@ void update_candidate(Candidate* head, int len, char* pwd) {
         *newCand = (Candidate){head->next, pwd};
         head->next = newCand;
     }
+}
+
+
+void writeOutput(Candidate* head) {
+    Candidate* nextCand = head;
+
+    while (nextCand != NULL) {
+        printf("%s\n", nextCand->password);
+
+        nextCand = nextCand->next;
+    }
+}
+
+int main(int argc, char *argv[]) {
+
+    //initialisation
+
+    //thread de lecture
+
+    //producteur-consommateur #1
+
+    //producteur-consommateur #2
+
+    //interaction LL
+
+    //ecriture
+
+    printf("Test starto !\n");
+
+    char* p3 = "glinglin";
+    char* p4 = "glauglau";
+    char* p5 = "glouglou";
+    Candidate a = {NULL, p3};
+    Candidate* b = &a;
+
+    update_candidate(b, 8, p4);
+    update_candidate(b, 8, p5);
+    writeOutput(b);
+
+    printf("Test complete !\n");
+    return EXIT_SUCCESS;
 }
