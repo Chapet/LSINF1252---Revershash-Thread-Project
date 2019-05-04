@@ -18,6 +18,7 @@ typedef struct Candidate {
 }Candidate;
 
 char consonant_or_vowel = 'v';
+int curOcc = 0;
 
 /* pre : str!=NULL, str is a string containing only letters ranging a-z
  * post : returns the number of occurrences of vowel or consonant, depending on the global variable consonant_or_vowel;
@@ -48,18 +49,20 @@ int countOcc (char* str) {
  *If the password's length is greater, the current list is replaced with a list containing only this password as candidate.
  *Else if the password's length is identical, the password is added to the list of candidates
  *Else (the password's length is shorter), the password is not added and thus the list stays unchanged.*/
-void update_candidate(Candidate* head, int curOcc, char* pwd) { //len a remplacer par nbOcc (pr clarte)
+void update_candidate(Candidate* head, char* pwd) { //len a remplacer par nbOcc (pr clarte)
     if (head == NULL || head->password == NULL || pwd == NULL){
         return;
     }
 
     int pwdOcc = countOcc(pwd);
 
-    if (pwdOcc > curOcc) {
+    if (pwdOcc > curOcc) { //then a new head is created
         head->next = NULL;
         head->password = pwd;
+
+        curOcc = pwdOcc; //update the global variable
     }
-    else if (pwdOcc == curOcc) {
+    else if (pwdOcc == curOcc) { //then a new Candidate is added to the linked list
         Candidate* newCand = malloc(sizeof(Candidate));
         *newCand = (Candidate){head->next, pwd};
         head->next = newCand;
