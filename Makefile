@@ -1,17 +1,17 @@
 CC = gcc
-CFLAGS =-Wall -Werror
+CFLAGS =-Wall -Werror -pthread
 
 src/cracker: src/cracker.o src/reverse.o src/sha256.o
-	$(CC) -o src/cracker src/cracker.o src/reverse.o src/sha256.o $(CFLAGS)
+	$(CC) $(CFLAGS) -o src/cracker src/cracker.o src/reverse.o src/sha256.o
 
 src/cracker.o: src/cracker.c src/reverse.h src/sha256.h
-	$(CC) -o src/cracker.o -c src/cracker.c $(CFLAGS)
+	$(CC) $(CFLAGS) -o src/cracker.o -c src/cracker.c
 
 src/reverse.o: src/reverse.c src/reverse.h src/sha256.h
-	$(CC) -o src/reverse.o -c src/reverse.c $(CFLAGS)
+	$(CC) $(CFLAGS) -o src/reverse.o -c src/reverse.c
 
 src/sha256.o: src/sha256.c src/sha256.h
-	$(CC) -o src/sha256.o -c src/sha256.c $(CFLAGS)
+	$(CC) $(CFLAGS) -o src/sha256.o -c src/sha256.c
 
 all: cracker
 
