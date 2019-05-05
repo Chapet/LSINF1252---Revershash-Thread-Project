@@ -12,13 +12,20 @@
 #include "reverse.h"
 
 //def of global variables and structures
+
+int nbThread = 1; //the number of threads used to parallelize the reversal of the hashs
+char consonant_or_vowel = 'v'; //v for vowel, c for consonant
+int stdOutput = 1; //1 for the std output, else the output is a specified file
+char* fileOutput = NULL; //the possible output file (voir si pas moyen de combiner avec stdout pr etre strong)
+
+int curOcc = 0; //number of occurrences of vowel/consonant in the actual members of the linked list
+
+
 typedef struct Candidate {
     struct Candidate *next;
     char *password;
 }Candidate;
 
-char consonant_or_vowel = 'v';
-int curOcc = 0;
 
 /* pre : str!=NULL, str is a string containing only letters ranging a-z
  * post : returns the number of occurrences of vowel or consonant, depending on the global variable consonant_or_vowel;
@@ -69,7 +76,7 @@ void update_candidate(Candidate* head, char* pwd) { //len a remplacer par nbOcc 
     }
 }
 
-
+//add pre/post + change to manage other possible output
 void writeOutput(Candidate* head) { //no need to free the element of the linked list : when the program stops, all the associated memory is freed
     Candidate* nextCand = head;
 
@@ -80,14 +87,31 @@ void writeOutput(Candidate* head) { //no need to free the element of the linked 
     }
 }
 
-void* testroutine () {
-    printf("in thread\n");
-    pthread_exit(NULL);
-}
 
 int main(int argc, char *argv[]) {
 
-    //initialisation
+    // we first initialise the global variables with the getopt() function
+    int opt = 0;
+    while ((opt = getopt(argc, argv, "t:co:")) != -1) {
+        switch (opt) {
+            case 't' :
+                nbThread = atoi(optarg); //if we do a cast, we get values from the ASCII table, which is not what we want
+                break;
+            case 'c' :
+                consonant_or_vowel = 'c';
+                break;
+            case 'o' :
+                stdOutput = 0;
+                fileOutput = optarg;
+                break;
+            case '?' :
+                fprintf(stderr, "Unknown argument : %d\n", optopt);
+                break;
+
+        }
+
+    }
+
 
     //thread de lecture
 
@@ -99,11 +123,15 @@ int main(int argc, char *argv[]) {
 
     //ecriture
 
+    //tests pdt le dvpment
     printf("Test starto !\n");
 
-    pthread_t t;
-    pthread_create(&t, NULL, testroutine, NULL);
-    for(int i=0; i<100000000; i++){}
+    printf("nbThread : %d\n", nbThread);
+    printf("consonant_or_vowel : %c\n", consonant_or_vowel);
+    printf("sdtOutput : %d\n", stdOutput);
+    if (fileOutput != NULL) {
+        printf("fileOutput : %s\n", fileOutput);
+    }
 
     printf("Test complete !\n");
 
