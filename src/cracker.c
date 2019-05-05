@@ -6,6 +6,9 @@
 #include <stdbool.h>
 #include <pthread.h>
 #include <errno.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
 
 #include "sha256.h"
@@ -16,7 +19,8 @@
 int nbThread = 1; //the number of threads used to parallelize the reversal of the hashs
 char consonant_or_vowel = 'v'; //v for vowel, c for consonant
 int stdOutput = 1; //1 for the std output, else the output is a specified file
-char* fileOutput = NULL; //the possible output file (voir si pas moyen de combiner avec stdout pr etre strong)
+char* fileOutput = NULL; //the possible output file
+int listSize = 1; //size of the linked list
 
 int curOcc = 0; //number of occurrences of vowel/consonant in the actual members of the linked list
 
@@ -67,24 +71,29 @@ void update_candidate(Candidate* head, char* pwd) { //len a remplacer par nbOcc 
         head->next = NULL;
         head->password = pwd;
 
-        curOcc = pwdOcc; //update the global variable
+        curOcc = pwdOcc; //update of the global variables
+        listSize = 1;
     }
     else if (pwdOcc == curOcc) { //then a new Candidate is added to the linked list
         Candidate* newCand = malloc(sizeof(Candidate));
         *newCand = (Candidate){head->next, pwd};
         head->next = newCand;
+        listSize++; //update of the global variable
     }
 }
 
 //add pre/post + change to manage other possible output
-void writeOutput(Candidate* head) { //no need to free the element of the linked list : when the program stops, all the associated memory is freed
+char* writeOutput(Candidate* head) { //no need to free the element of the linked list : when the program stops, all the associated memory is freed
+    char* strOut = malloc(listSize*10*sizeof(char));
     Candidate* nextCand = head;
 
     while (nextCand != NULL) {
-        printf("%s\n", nextCand->password);
+        strcat(strOut, nextCand->password);
+        strcat(strOut, "\n");
 
         nextCand = nextCand->next;
     }
+    return strOut;
 }
 
 
@@ -119,9 +128,9 @@ int main(int argc, char *argv[]) {
 
     //producteur-consommateur #2
 
+    Candidate a = {NULL, "pwd"};
+    Candidate* head = &a;
     //interaction LL
-
-    //ecriture
 
     //tests pdt le dvpment
     printf("Test starto !\n");
@@ -134,6 +143,19 @@ int main(int argc, char *argv[]) {
     }
 
     printf("Test complete !\n");
+
+    char* stringOut = writeOutput(head);
+    //output
+    if (stdOutput)
+        printf("%s", stringOut);
+    else {
+        int fdOut = creat(fileOutput, S_IWUSR);
+        if(fdOut == 1) {
+            fprintf(stderr, "could not open/create output file");
+            return EXIT_FAILURE;
+        }
+
+    }
 
     return EXIT_SUCCESS;
 }
