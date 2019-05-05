@@ -1,26 +1,23 @@
 CC = gcc
 CFLAGS =-Wall -Werror
 
-all: cracker tests #ca lance tjr cracker si on fait juste make ?
+src/cracker: src/cracker.o src/reverse.o src/sha256.o
+	$(CC) -o src/cracker src/cracker.o src/reverse.o src/sha256.o $(CFLAGS)
 
-cracker: cracker.o reverse.o sha256.o
-    $(CC) -o '.\src\cracker' cracker.o reverse.o sha256.o
+src/cracker.o: src/cracker.c src/reverse.h src/sha256.h
+	$(CC) -o src/cracker.o -c src/cracker.c $(CFLAGS)
 
-cracker.o: cracker.c reverse.h sha256.h
-    $(CC) -o '.\src\cracker.o' -c cracker.c $(CFLAGS)
+src/reverse.o: src/reverse.c src/reverse.h src/sha256.h
+	$(CC) -o src/reverse.o -c src/reverse.c $(CFLAGS)
 
-reverse.o: reverse.c reverse.h sha256.h
-    $(CC) -o '.\src\reverse.o' -c reverse.c $(CFLAGS)
+src/sha256.o: src/sha256.c src/sha256.h
+	$(CC) -o src/sha256.o -c src/sha256.c $(CFLAGS)
 
-sha256.o: sha256.c sha256.h
-    $(CC) -o '.\src\sha256.o' -c sha256.c $(CFLAGS)
+all: cracker
 
 tests:
 
-.PHONY: clean rmcracker
+.PHONY: clean tests
 
-rmcracker:
-    rm -rf cracker
-
-clean: rmcracker
-    rm -rf *.o
+clean:
+	rm -rf src/cracker src/*.o
