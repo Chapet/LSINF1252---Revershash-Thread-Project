@@ -70,7 +70,7 @@ void update_candidate(Candidate* head, char* pwd) { //len a remplacer par nbOcc 
 }
 
 
-void writeOutput(Candidate* head) {
+void writeOutput(Candidate* head) { //no need to free the element of the linked list : when the program stops, all the associated memory is freed
     Candidate* nextCand = head;
 
     while (nextCand != NULL) {
@@ -78,6 +78,11 @@ void writeOutput(Candidate* head) {
 
         nextCand = nextCand->next;
     }
+}
+
+void* testroutine () {
+    printf("in thread\n");
+    pthread_exit(NULL);
 }
 
 int main(int argc, char *argv[]) {
@@ -96,6 +101,11 @@ int main(int argc, char *argv[]) {
 
     printf("Test starto !\n");
 
+    pthread_t t;
+    pthread_create(&t, NULL, testroutine, NULL);
+    for(int i=0; i<100000000; i++){}
+
     printf("Test complete !\n");
+
     return EXIT_SUCCESS;
 }
