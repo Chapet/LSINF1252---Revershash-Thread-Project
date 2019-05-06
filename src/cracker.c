@@ -6,9 +6,6 @@
 #include <stdbool.h>
 #include <pthread.h>
 #include <errno.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
 
 
 #include "sha256.h"
@@ -141,15 +138,25 @@ int main(int argc, char *argv[]) {
 
     printf("Test complete !\n");
 
-    char* stringOut = writeOutput(head);
     //output
+    char* stringOut = writeOutput(head);
     if (stdOutput)
         printf("%s", stringOut);
     else {
         FILE* fp;
         fp = fopen(fileOutput, "w");
+        if (fp == NULL) {
+            fprintf(stderr, "error while opening output file: %d", errno);
+            free(stringOut);
+            return EXIT_FAILURE;
+        }
         fprintf(fp, "%s", stringOut);
-        fclose(fp);
+        int c = fclose(fp);
+        if (c != 0) {
+            fprintf(stderr, "error while closing output file : %d", errno);
+            free(stringOut);
+            return EXIT_FAILURE;
+        }
     }
 
     free(stringOut); // not really necessary
