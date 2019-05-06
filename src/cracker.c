@@ -25,17 +25,13 @@ typedef struct Candidate {
 }Candidate;
 
 
-/* pre : str!=NULL, str is a string containing only letters ranging a-z
- * post : returns the number of occurrences of vowel or consonant, depending on the global variable consonant_or_vowel;
+/* pre: str!=NULL, str is a string containing only letters ranging a-z
+ * post: returns the number of occurrences of vowel or consonant, depending on the global variable consonant_or_vowel;
  */
 int countOcc (char* str) {
-    if (str == NULL) {
-        return 0;
-    }
     char* cur = str; //a pointer to browse the string
     int vowel = 0; //to count the number of vowel's occurrences
     int i;
-// ou alors c'est plus propre de faire while (*cur != %0) ?
     for (i = 0; i < strlen(str); i++) { //browsing the string
         if (*(cur+i) == 'a' || *(cur+i) == 'e' || *(cur+i) == 'i' || *(cur+i) == 'o' || *(cur+i) == 'u' || *(cur+i) == 'y') { //the current char is a vowel
             vowel ++;
@@ -48,15 +44,15 @@ int countOcc (char* str) {
         return strlen(str)-vowel; //every char that is not a vowel is a consonant
 }
 
-/*pre : head != NULL, head->password != NULL, pwd != NULL
- *post : Checks if a password is the be added to the list of candidates by comparing his length to to the current candidates length.
+/*pre: head != NULL, head->password != NULL, pwd != NULL
+ *post: Checks if a password is the be added to the list of candidates by comparing his length to to the current candidates length.
  *
  *If the password's length is greater, the current list is replaced with a list containing only this password as candidate.
  *Else if the password's length is identical, the password is added to the list of candidates
  *Else (the password's length is shorter), the password is not added and thus the list stays unchanged.*/
 void update_candidate(Candidate* head, char* pwd) {
     if (head == NULL || head->password == NULL || pwd == NULL){
-        return;
+        fprintf(stderr, "error while updating linked list (pointer or struct element NULL)");
     }
     int curOcc = countOcc(head->password);
     int pwdOcc = countOcc(pwd);
@@ -75,8 +71,14 @@ void update_candidate(Candidate* head, char* pwd) {
     }
 }
 
-//add pre/post + change to manage other possible output
+/* pre: head != NULL, head->password =! NULL
+ * post : returns a char* containing all the password, with a newline after each one
+ */
 char* writeOutput(Candidate* head) { //no need to free the element of the linked list : when the program stops, all the associated memory is freed
+    if (head == NULL || head->password != NULL) {
+        fprintf(stderr, "error while extracting passwords out of linked list (pointer or struct value NULL)");
+        return NULL;
+    }
     char* strOut = malloc(listSize*18*sizeof(char)); //the password has a maximum length of 16 letters + the line feed (2 bytes)
     Candidate* nextCand = head;
 
@@ -138,11 +140,11 @@ int main(int argc, char *argv[]) {
 
     printf("Test complete !\n");
 
-    //output
+    //output : the string containing all the password (one on each line) is obtained, then it is printed on the correct output stream
     char* stringOut = writeOutput(head);
-    if (stdOutput)
+    if (stdOutput) //standard output
         printf("%s", stringOut);
-    else {
+    else { //specified output file
         FILE* fp;
         fp = fopen(fileOutput, "w");
         if (fp == NULL) {
@@ -158,7 +160,6 @@ int main(int argc, char *argv[]) {
             return EXIT_FAILURE;
         }
     }
-
-    free(stringOut); // not really necessary
+    free(stringOut); // not really necessary since the process is about to be stopped anyway (and thus the memory cleaned)
     return EXIT_SUCCESS;
 }
