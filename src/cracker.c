@@ -22,9 +22,6 @@ int stdOutput = 1; //1 for the std output, else the output is a specified file
 char* fileOutput = NULL; //the possible output file
 int listSize = 1; //size of the linked list
 
-int curOcc = 0; //number of occurrences of vowel/consonant in the actual members of the linked list
-
-
 typedef struct Candidate {
     struct Candidate *next;
     char *password;
@@ -60,18 +57,17 @@ int countOcc (char* str) {
  *If the password's length is greater, the current list is replaced with a list containing only this password as candidate.
  *Else if the password's length is identical, the password is added to the list of candidates
  *Else (the password's length is shorter), the password is not added and thus the list stays unchanged.*/
-void update_candidate(Candidate* head, char* pwd) { //len a remplacer par nbOcc (pr clarte)
+void update_candidate(Candidate* head, char* pwd) {
     if (head == NULL || head->password == NULL || pwd == NULL){
         return;
     }
-
+    int curOcc = countOcc(head->password);
     int pwdOcc = countOcc(pwd);
 
     if (pwdOcc > curOcc) { //then a new head is created
         head->next = NULL;
         head->password = pwd;
 
-        curOcc = pwdOcc; //update of the global variables
         listSize = 1;
     }
     else if (pwdOcc == curOcc) { //then a new Candidate is added to the linked list
@@ -84,7 +80,7 @@ void update_candidate(Candidate* head, char* pwd) { //len a remplacer par nbOcc 
 
 //add pre/post + change to manage other possible output
 char* writeOutput(Candidate* head) { //no need to free the element of the linked list : when the program stops, all the associated memory is freed
-    char* strOut = malloc(listSize*10*sizeof(char));
+    char* strOut = malloc(listSize*18*sizeof(char)); //the password has a maximum length of 16 letters + the line feed (2 bytes)
     Candidate* nextCand = head;
 
     while (nextCand != NULL) {
@@ -128,8 +124,9 @@ int main(int argc, char *argv[]) {
 
     //producteur-consommateur #2
 
-    Candidate a = {NULL, "pwd"};
+    Candidate a = {NULL, "abcdefghijklmnop"};
     Candidate* head = &a;
+    update_candidate(head, "aaaa");
     //interaction LL
 
     //tests pdt le dvpment
@@ -149,13 +146,12 @@ int main(int argc, char *argv[]) {
     if (stdOutput)
         printf("%s", stringOut);
     else {
-        int fdOut = creat(fileOutput, S_IWUSR);
-        if(fdOut == 1) {
-            fprintf(stderr, "could not open/create output file");
-            return EXIT_FAILURE;
-        }
-
+        FILE* fp;
+        fp = fopen(fileOutput, "w");
+        fprintf(fp, "%s", stringOut);
+        fclose(fp);
     }
 
+    free(stringOut); // not really necessary
     return EXIT_SUCCESS;
 }
