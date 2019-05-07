@@ -5,6 +5,7 @@
 #include <string.h>
 #include <stdbool.h>
 #include <pthread.h>
+#include <semaphore.h>
 #include <errno.h>
 
 
@@ -12,7 +13,6 @@
 #include "reverse.h"
 
 //def of global variables and structures
-
 int nbThread = 1; //the number of threads used to parallelize the reversal of the hashs
 char consonant_or_vowel = 'v'; //v for vowel, c for consonant
 char* fileOutput = NULL; //the possible output file, also used to know if the output is specified
@@ -44,7 +44,7 @@ int countOcc (char* str) {
 /* pre: head != NULL
  * post: return the number of nodes of the linking list (including the head)
  */
-int listSize(Candidate* head) {
+int listSize(Candidate* head) { //à remplacer avec une fonction qui calcule le nb de char
     int size = 0;
     Candidate* next = head;
 
@@ -99,30 +99,43 @@ char* writeOutput(Candidate* head) { //no need to free the element of the linked
     return strOut;
 }
 
+/* pre:
+ * post:
+ */
+
 
 int main(int argc, char *argv[]) {
+    int notInputFiles = 1; //used to know the number of input files
 
     // we first initialise the global variables with the getopt() function
     int opt = 0;
     while ((opt = getopt(argc, argv, "t:co:")) != -1) {
         switch (opt) {
             case 't' :
+                notInputFiles += 2;
                 nbThread = atoi(optarg); //if we do a cast, we get values from the ASCII table, which is not what we want
                 break;
             case 'c' :
+                notInputFiles ++;
                 consonant_or_vowel = 'c';
                 break;
             case 'o' :
+                notInputFiles += 2;
                 fileOutput = optarg;
                 break;
             case '?' :
                 fprintf(stderr, "Unknown argument : %d\n", optopt);
                 break;
-
         }
-
     }
 
+    //stocking the input files in a string array
+    int nbInputFile = argc - notInputFiles;
+    char* fileInput[nbInputFile];
+    for (int i = 0; i < nbInputFile; i++) {
+        fileInput[i] = argv[i+notInputFiles];
+        printf("%s\n", fileInput[i]);
+    }
 
     //thread de lecture
 
@@ -135,6 +148,8 @@ int main(int argc, char *argv[]) {
     update_candidate(head, "aaaa");
     //interaction LL
 
+
+
     //tests pdt le dvpment
     printf("Test starto !\n");
 
@@ -146,6 +161,8 @@ int main(int argc, char *argv[]) {
     else printf("output on standard output\n");
 
     printf("Test complete !\n");
+
+
 
     //output : the string containing all the password (one on each line) is obtained, then it is printed on the correct output stream
     char* stringOut = writeOutput(head);
