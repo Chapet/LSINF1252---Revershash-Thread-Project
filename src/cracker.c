@@ -13,27 +13,34 @@
 #include "reverse.h"
 
 //def of global variables and structures
+typedef struct Candidate {
+    struct Candidate *next;
+    char *password;
+}Candidate;
+
+typedef struct ProdConsArg1 {
+    pthread_mutex_t mutex;
+    sem_t empty;
+    sem_t full;
+    char *fileInput[];
+} PCArg1;
+
 int nbThread = 1; //the number of threads used to parallelize the reversal of the hashs
 char consonant_or_vowel = 'v'; //v for vowel, c for consonant
 char *fileOutput = NULL; //the possible output file, also used to know if the output is specified
 int nbInputFile;
 FILE *fdInput = NULL; //file descriptor used for reading the input files
 int curInputFile = 0;
-uint8_t **buffer; //the first buffer
-
-
-typedef struct Candidate {
-    struct Candidate *next;
-    char *password;
-}Candidate;
-
-typedef struct ReadArg {
-    int curSize; //the current number of element int the first buffer
-    pthread_mutex_t mutex;
-    sem_t empty;
-    sem_t full;
-    char *fileInput[];
-} ReadArg;
+uint8_t **buffer1; //the first buffer
+char **buffer2; //the second buffer
+int curSize1 = 0; //the current number of element in the first buffer
+int curSize2 = 0; //the current number of element in the second buffer
+Candidate *head = &(Candidate){NULL, ""}; //head of the linked list
+bool readFlag = false; //a boolean flag indicating if the reading of the input files is over
+pthread_mutex_t mut;
+int countRevThreadOver = 0; //counts the number of threads that finished to reverse a hash after the reading is over and the first buffer is empty
+sem_t revOver;
+sem_t crackerOver;
 
 /* pre: str!=NULL, str is a string containing only letters ranging a-z
  * post: returns the number of occurrences of vowel or consonant, depending on the global variable consonant_or_vowel;
@@ -57,7 +64,7 @@ int countOcc(char *str) {
 /* pre: head != NULL
  * post: return the number of nodes of the linking list (including the head)
  */
-int listSize(Candidate *head) { //à remplacer avec une fonction qui calcule le nb de char
+int listSize() { //à remplacer avec une fonction qui calcule le nb de char
     int size = 0;
     Candidate *next = head;
 
@@ -74,7 +81,7 @@ int listSize(Candidate *head) { //à remplacer avec une fonction qui calcule le 
  *If the password's length is greater, the current list is replaced with a list containing only this password as candidate.
  *Else if the password's length is identical, the password is added to the list of candidates
  *Else (the password's length is shorter), the password is not added and thus the list stays unchanged.*/
-void update_candidate(Candidate *head, char *pwd) {
+void update_candidate(char *pwd) {
     if (head == NULL || head->password == NULL || pwd == NULL) {
         fprintf(stderr, "error while updating linked list (pointer or struct element NULL)\n");
     }
@@ -94,12 +101,12 @@ void update_candidate(Candidate *head, char *pwd) {
 /* pre: head != NULL, head->password =! NULL
  * post : returns a char* containing all the password, with a newline after each one
  */
-char *writeOutput(Candidate *head) { //no need to free the element of the linked list : when the program stops, all the associated memory is freed
+char *writeOutput() { //no need to free the element of the linked list : when the program stops, all the associated memory is freed
     if (head == NULL || head->password == NULL) {
         fprintf(stderr, "error while extracting passwords out of linked list (pointer or struct value NULL)\n");
         return NULL;
     }
-    char *strOut = malloc(listSize(head) * 18 * sizeof(char)); //the password has a maximum length of 16 letters + the line feed (2 bytes)
+    char *strOut = malloc(listSize() * 18 * sizeof(char)); //the password has a maximum length of 16 letters + the line feed (2 bytes)
     Candidate *next = head;
 
     while (next != NULL) {
@@ -148,37 +155,131 @@ void *produce(uint8_t *bufread, char *fileInput[]) { //not thread-safe
     return NULL;
 }
 
-/* pre : arg contains a pointer to a ReadArg struct
+/* pre : arg contains a pointer to a PCArg1 struct
  * post : the produce function is called and the 32 bytes read from the file are added into the first buffer
  */
 void* producer (void* arg){
+    PCArg1 *rArg = (PCArg1*) arg;
      while(1)
     {
-        ReadArg *rArg = (ReadArg*) arg;
         uint8_t *bufread = malloc(32);
 
         produce(bufread, rArg->fileInput);
-        if (fdInput == NULL) {break;}
+        if (fdInput == NULL) {
+            readFlag = true;
+            break;
+        }
         sem_wait(&(rArg->empty)); //waiting for a free buffer slot
         pthread_mutex_lock(&(rArg->mutex));
 
-        //insert item into the list
-        buffer[rArg->curSize] = bufread;
+        //critical section
+        buffer1[curSize1] = bufread; //insert item into the list
         for (int i = 0; i < 32; i++){
-            printf("%d", buffer[rArg->curSize][i]);
+            printf("%d", buffer1[curSize1][i]);
         }
         printf("\n");
 
-        rArg->curSize++;
+        curSize1++;
 
         pthread_mutex_unlock((&rArg->mutex));
-        sem_post(&(rArg->full));
+        sem_post(&(rArg->full)); //one more filled spot
     }
+     return NULL;
+}
+
+/* pre:
+ * post:
+ */
+void* revHashRoutine (void* arg) { // arg is a pointer to a pointer to a PCArg1 structure (an array of 2 pointer for the 2 producer/consumer)
+    PCArg1 **rArg = (PCArg1**) arg;
+    PCArg1 *rArg1 = (PCArg1*) rArg[1];
+    PCArg1 *rArg2 = (PCArg1*) rArg[2];
+    uint8_t *bufHash;
+
+    while(true)
+    {
+        char *hashResult = malloc(16* sizeof(char));
+
+        sem_wait(&(rArg1->full)); //waiting for a filled spot
+        pthread_mutex_lock(&(rArg1->mutex));
+
+        //critical section
+        if(readFlag && curSize1 == 0) {
+            pthread_mutex_unlock(&(rArg1->mutex));
+            break;
+        }
+        bufHash = buffer1[curSize1];
+        curSize1--;
+
+        pthread_mutex_unlock(&(rArg1->mutex));
+        sem_post(&(rArg1->empty)); //one more free slot
+
+        bool succes = reversehash(bufHash, hashResult, 16);
+        if(!succes) {
+            fprintf(stderr, "error while reversing hash");
+        }
+
+        sem_wait(&(rArg2->empty)); //waiting for a free slot
+        pthread_mutex_lock(&(rArg2->mutex));
+
+        // critical section
+        buffer2[curSize2] = hashResult;
+        curSize2++;
+
+        pthread_mutex_unlock(&(rArg2->mutex));
+        sem_post(&(rArg2->full)); //one more filled spot
+    }
+    pthread_mutex_lock(&mut);
+
+    // critical section
+    countRevThreadOver++;
+    sem_post(&revOver);
+
+    pthread_mutex_unlock(&mut);
+    return NULL;
+} //consumer/producer
+
+/* pre:
+ * post:
+ */
+void* consumer (void* arg) {
+    PCArg1 *rArg = (PCArg1*) arg;
+    while(true)
+    {
+        if (readFlag) {
+            pthread_mutex_lock(&(rArg->mutex));
+            if(curSize2 == 0) {
+                pthread_mutex_unlock(&(rArg->mutex));
+                pthread_mutex_lock(&mut);
+                sem_wait(&revOver); // not necessarily as much update as revhash
+                if (countRevThreadOver == nbThread) {
+                    pthread_mutex_unlock(&mut);
+                    goto TAG;
+                }
+            }
+            pthread_mutex_unlock(&(rArg->mutex));
+        }
+        sem_wait(&(rArg->full)); //waiting for a filled slot
+        pthread_mutex_lock(&(rArg->mutex));
+
+        // section critique
+        update_candidate(buffer2[curSize2]);
+        curSize2--;
+
+        pthread_mutex_unlock(&(rArg->mutex));
+        sem_post(&(rArg->empty)); //one more free slot
+    }
+    TAG:
+    sem_destroy(&revOver);
+    sem_post(&crackerOver);
     return NULL;
 }
 
 int main(int argc, char *argv[]) {
-    int notInputFiles = 1; //used to know the number of input files
+    int notInputFiles = 1; //used to know the number of input files, the 1 is due to argv[0]
+    pthread_mutex_init(&(mut) , NULL);
+    sem_init(&revOver, 0, -nbThread);
+    sem_init(&crackerOver, 0, 0);
 
     // we first initialise the global variables with the getopt() function
     int opt = 0;
@@ -210,43 +311,45 @@ int main(int argc, char *argv[]) {
     }
 
     //creating the struct passed as argument to the reading thread
-    ReadArg readArg;
+    PCArg1 readArg;
     for(int i = 0; i < nbInputFile; i++)
         readArg.fileInput[i] = fileInput[i];
     pthread_mutex_init (&(readArg.mutex) , NULL);
     sem_init (&(readArg.empty) , 0 , nbThread*2);
     sem_init (&(readArg.full) , 0 , 0);
-    readArg.curSize = 0;
 
-    buffer = malloc(2*nbThread*sizeof(uint8_t*));
+    PCArg1 updateArg;
+    pthread_mutex_init (&(updateArg.mutex) , NULL);
+    sem_init (&(updateArg.empty) , 0 , nbThread*2);
+    sem_init (&(updateArg.full) , 0 , 0);
 
-    //threads
+    PCArg1 *revRoutine = malloc(2* sizeof(PCArg1));
+    revRoutine[1] = readArg;
+    revRoutine[2] = updateArg;
 
-    //interaction LL
-    Candidate *head = &(Candidate){NULL, ""};
+    buffer1 = malloc(2*nbThread*sizeof(uint8_t*));
+    buffer2 = malloc(2*nbThread*sizeof(char*));
 
-    //tests pdt le dvpment
+    pthread_t readingT;
+    pthread_create(&readingT, NULL, producer(&readArg), NULL);
+
+    for (int i = 0; i < nbThread; i++) {
+        pthread_t threadT;
+        pthread_create(&threadT, NULL, revHashRoutine(&revRoutine), NULL);
+    }
+
+    pthread_t updateT;
+    pthread_create(&updateT, NULL, consumer(&updateArg), NULL);
+
+    //tests during coding
     printf("Test starto !\n");
-    printf("%s\n", fileInput[0]);
-    producer(&readArg);
-
-
-    /*uint8_t buf[32];
-    while (curInputFile == 0) {
-        char *result = malloc(16);
-        produce(buf, fileInput);
-        if (curInputFile == 0) {
-            bool success = reversehash(buf, result, 16);
-            printf("%d : %s \n", success, result);
-        }
-    }*/
 
     printf("Test complete !\n");
 
-
+    sem_wait(&crackerOver);
 
     //output : the string containing all the password (one on each line) is obtained, then it is printed on the correct output stream
-    char *stringOut = writeOutput(head);
+    char *stringOut = writeOutput();
     if (fileOutput == NULL) //standard output
         printf("%s", stringOut);
     else { //specified output file
