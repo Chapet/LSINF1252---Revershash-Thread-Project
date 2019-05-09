@@ -1,5 +1,9 @@
+default: cracker
+
 CC = gcc
-CFLAGS =-Wall -Werror -pthread
+CFLAGS =-Wall -Werror -pthread -std=c99 -g
+
+CFiles =
 
 src/cracker: src/cracker.o src/reverse.o src/sha256.o
 	$(CC) $(CFLAGS) -o src/cracker src/cracker.o src/reverse.o src/sha256.o
@@ -16,6 +20,12 @@ src/sha256.o: src/sha256.c src/sha256.h
 all: cracker
 
 tests:
+
+// code bash pour tester l'initialisation.
+
+gcc -o progtest $CFLAGS$ CUnit.c -lcunit
+
+// code bash pour tester le code en entier.
 
 .PHONY: clean tests
 
