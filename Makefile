@@ -23,13 +23,51 @@ all:
 tests:
 
     # code bash pour tester l'initialisation.
+    gcc -o prog $(CFLAGS)$ test_initialisation.c
+
+    echo Maintenant testons sans argument, puis avec.
+
     ./prog
+
+    ./prog -c
+
+    ./prog -t 4
+
+    ./prog -o filename
+
+    ./prog -c -t 8 -o filename
+
+    ./prog -r
+
+    /////////
+
+    echo Maintenant les tests CUnit.
 
     gcc -o progtest $(CFLAGS)$ cracker.o CUnit.c -lcunit
 
     ./progtest
 
-    # code bash pour tester le code en entier.
+    /////////
+
+    # code bash pour tester le code en entier (peut-être mettre des echos pour dire quoi test quoi).
+
+    echo Maintenant passons au test du code en entier.
+
+    ./cracker  bin160o.bin
+
+    ./cracker -c bin16o.bin
+
+    ./cracker bin32ko.bin
+
+    ./cracker -t 50 bin32ko.bin
+
+    ./cracker -c -t 50 -o fichiersortie.txt bin32ko.bin
+    cat fichiersortie.txt
+
+    ./cracker -t 50 -o fichiersortie2.txt bin160o.bin bin32ko.bin
+    cat fichiersortie2.txt
+
+    ///////////
 
 .PHONY: clean tests
 
