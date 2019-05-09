@@ -19,11 +19,21 @@ char *fileOutput = NULL; //the possible output file, also used to know if the ou
 int nbInputFile;
 FILE *fdInput = NULL; //file descriptor used for reading the input files
 int curInputFile = 0;
+uint8_t **buffer; //the first buffer
+
 
 typedef struct Candidate {
     struct Candidate *next;
     char *password;
 }Candidate;
+
+typedef struct ReadArg {
+    int curSize; //the current number of element int the first buffer
+    pthread_mutex_t mutex;
+    sem_t empty;
+    sem_t full;
+    char *fileInput[];
+} ReadArg;
 
 /* pre: str!=NULL, str is a string containing only letters ranging a-z
  * post: returns the number of occurrences of vowel or consonant, depending on the global variable consonant_or_vowel;
@@ -107,26 +117,65 @@ char *writeOutput(Candidate *head) { //no need to free the element of the linked
 void *produce(uint8_t *bufread, char *fileInput[]) { //not thread-safe
     //if not no file descriptor is set, either the first or the next input file is opened and read
     while (fdInput == NULL) { //the while is used instead of an if to handle the empty files issue
-        curInputFile++;
-
-        if (curInputFile > nbInputFile) { //all the input files have been read
+        if (curInputFile == nbInputFile) { //all the input files have been read
             int c = fclose(fdInput);
             if (c != 0) {
-                fprintf(stderr, "error while closing input file : %d\n", errno);
+                fprintf(stderr, "1error while closing input file : %d\n", errno);
             }
+            fdInput = NULL;
+            curInputFile++; //curInputFile == nbInputFile + 1, serves as a flag that the input handling is over
+            return NULL;
+        } else if (curInputFile > nbInputFile) {
             return NULL;
         } else { //the new input file is opened
-            fdInput = fopen(fileInput[curInputFile-1], "r");
+            fdInput = fopen(fileInput[curInputFile], "r");
             printf("file opened\n");
         }
     }
 
-    if (fread(bufread, 32, 1, fdInput) != 1) {
+    int r = fread(bufread, 32, 1, fdInput);
+    if (r == 0) { //eof
+        int c = fclose(fdInput);
+        if (c != 0) {
+            fprintf(stderr, "2error while closing input file : %d\n", errno);
+        }
+        fdInput = NULL;
+        curInputFile++;
+    } else if (r != 1) { //error
         fprintf(stderr, "error while reading input file\n");
     }
+    printf("gone trough\n");
     return NULL;
 }
 
+/* pre : arg contains a pointer to a ReadArg struct
+ * post : the produce function is called and the 32 bytes read from the file are added into the first buffer
+ */
+void* producer (void* arg){
+     while(1)
+    {
+        ReadArg *rArg = (ReadArg*) arg;
+        uint8_t *bufread = malloc(32);
+
+        produce(bufread, rArg->fileInput);
+        if (fdInput == NULL) {break;}
+        sem_wait(&(rArg->empty)); //waiting for a free buffer slot
+        pthread_mutex_lock(&(rArg->mutex));
+
+        //insert item into the list
+        buffer[rArg->curSize] = bufread;
+        for (int i = 0; i < 32; i++){
+            printf("%d", buffer[rArg->curSize][i]);
+        }
+        printf("\n");
+
+        rArg->curSize++;
+
+        pthread_mutex_unlock((&rArg->mutex));
+        sem_post(&(rArg->full));
+    }
+    return NULL;
+}
 
 int main(int argc, char *argv[]) {
     int notInputFiles = 1; //used to know the number of input files
@@ -160,11 +209,18 @@ int main(int argc, char *argv[]) {
         fileInput[i] = argv[i + notInputFiles];
     }
 
-    //thread de lecture
+    //creating the struct passed as argument to the reading thread
+    ReadArg readArg;
+    for(int i = 0; i < nbInputFile; i++)
+        readArg.fileInput[i] = fileInput[i];
+    pthread_mutex_init (&(readArg.mutex) , NULL);
+    sem_init (&(readArg.empty) , 0 , nbThread*2);
+    sem_init (&(readArg.full) , 0 , 0);
+    readArg.curSize = 0;
 
-    //producteur-consommateur #1
+    buffer = malloc(2*nbThread*sizeof(uint8_t*));
 
-    //producteur-consommateur #2
+    //threads
 
     //interaction LL
     Candidate *head = &(Candidate){NULL, ""};
@@ -172,12 +228,18 @@ int main(int argc, char *argv[]) {
     //tests pdt le dvpment
     printf("Test starto !\n");
     printf("%s\n", fileInput[0]);
+    producer(&readArg);
 
-    char *result = malloc(16);
-    uint8_t buf[32];
-    produce(buf, fileInput);
-    bool success = reversehash(buf, result, 16);
-    printf("%d : %s\n", success, result);
+
+    /*uint8_t buf[32];
+    while (curInputFile == 0) {
+        char *result = malloc(16);
+        produce(buf, fileInput);
+        if (curInputFile == 0) {
+            bool success = reversehash(buf, result, 16);
+            printf("%d : %s \n", success, result);
+        }
+    }*/
 
     printf("Test complete !\n");
 
