@@ -1,57 +1,38 @@
 #include <CUnit.h>
+#include <src/cracker.h>
 
 
 // initialisation //
 
-void test_initialisation (void) {
-    // ./prog //                        // Test sans argument, on vérifie que rien n'est changé.
+// ./prog //                        // Test sans argument, on vérifie que rien n'est changé.
 
-    CU_ASSERT_EQUAL(nombredethread, 1);
-    CU_ASSERT_EQUAL(voyelle, 1);
-    CU_ASSERT_EQUAL(sortiestandard, 1);
+// ./prog -c //                     // Test que le critère de sélection devient bien les consonnes.
 
-    // ./prog -c //                     // Test que le critère de sélection devient bien les consonnes.
+// ./prog -t 4 //                   // Test que le nombre de thread est bien changé.
 
-    CU_ASSERT_EQUAL(voyelle, 0);
+// ./prog -o filename //            // Test le changement de la sortie standard.
 
-    // ./prog -t 4 //                   // Test que le nombre de thread est bien changé.
+// ./prog -c -t 8 -o filename //    // Test avec tous les arguments.
 
-    CU_ASSERT_EQUAL(nombredethread, 4);
+// ./prog -r                        // Test avec un argument non repris pour voir le message d'erreur.
 
-    // ./prog -o filename //            // Test le changement de la sortie standard.
+//--------------------//
 
-    CU_ASSERT_EQUAL(sortiestandard, 0);
-    CU_ASSERT_EQUAL(fichierout, filename);
-    // Test si c'est bien écrit après?
+// Fonction Insert item //
+void test_insert_item (void){
 
-    // ./prog -c -t 8 -o filename //    // Test avec tous les arguments.
 
-    CU_ASSERT_EQUAL(sortiestandard, 0);
-    CU_ASSERT_EQUAL(fichierout, filename);
-    CU_ASSERT_EQUAL(nombredethread, 8);
-    CU_ASSERT_EQUAL(voyelle, 0);
-
-    // ./prog -r                        // Test avec un argument non repris pour voir le message d'erreur.
-
-    //??//
+    CU_ASSERT_DOUBLE_EQUAL(tailleactuelleavant,tailleactuelle,1); // On vérifie que tailleactuelle ne s'incrémente que de 1.
 
 }
-
-    // Fonction Insert item //
-    void test_insert_item (void){
-
-
-        CU_ASSERT_DOUBLE_EQUAL(tailleactuelleavant,tailleactuelle,1); // On vérifie que tailleactuelle ne s'incrémente que de 1.
-
-}
-    //---//
+//---//
 
 //--------------//
 
 // Fonction countOcc //
-    void test_countOcc(void) {
+void test_countOcc(void) {
 
-    // Attention penser à include les variables globales aussi.
+    // Attention penser à include les variables globales dans le header aussi.
     char *test = aaa;
     CU_ASSERT_EQUALS(countOcc(test), 3);      //Test trois fois la même voyelle.
     CU_ASSERT_EQUALS(countOcc(test), 0);      // Test si l'absence de consonne renvoie bien 0.
@@ -64,7 +45,7 @@ void test_initialisation (void) {
 // -----------------//
 
 // Fonction listSize //
-    void test_listSize(void) {
+void test_listSize(void) {
 
     Candidate test = {NULL, "abcdefgh"};                            // Test dans le cas où il n'y a que la tête.
     CU_ASSERT_EQUALS(ListSize(&test), 1);
@@ -78,7 +59,7 @@ void test_initialisation (void) {
 // ------------------ //
 
 // Fonction update_candidate //
-    void test_update_candidate(void) {
+void test_update_candidate(void) {
 
     // A Changer si on enlève l'argument head.
     Candidate test = {NULL, "abcdefg"};
