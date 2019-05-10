@@ -108,7 +108,7 @@ char *writeOutput() { //no need to free the element of the linked list : when th
         fprintf(stderr, "error while extracting passwords out of linked list (pointer or struct value NULL)\n");
         return NULL;
     }
-    char *strOut = malloc(listSize()* sizeof(char)); //the password has a maximum length of 16 letters + the line feed (2 bytes)
+    char *strOut = malloc(listSize()*sizeof(char));
     Candidate *next = head;
 
     while (next != NULL) {
@@ -208,12 +208,12 @@ void *producer (void *arg){
 /* pre: arg contains a pointer to a pointer of 2 PCArg1 struct
  * post: takes a hash from the first buffer, reverses it then places it in the second buffer
  */
-void* revHashRoutine (void* arg) { // arg is a pointer to a pointer to a PCArg1 structure (an array of 2 pointer for the 2 producer/consumer)
+void* revHashRoutine (void* arg) {
     printf("revHashRoutine ENTER\n");
     PCArg1 **rArg = (PCArg1**) arg;
     PCArg1 *rArg1 = (PCArg1*) rArg[1];
     PCArg1 *rArg2 = (PCArg1*) rArg[2];
-    uint8_t *bufHash;
+    //uint8_t *bufHash;
 
     while(true)
     {
@@ -221,7 +221,7 @@ void* revHashRoutine (void* arg) { // arg is a pointer to a pointer to a PCArg1 
         printf("curSize1 :  %d\n", curSize1);
         printf("flag = %d\n", readFlag);
         fflush(stdout);
-        char *hashResult = malloc(16* sizeof(char));
+        //char *hashResult = malloc(16* sizeof(char));
 
         sem_wait(&(rArg1->full)); //waiting for a filled spot
         pthread_mutex_lock(&(rArg1->mutex));
@@ -235,7 +235,7 @@ void* revHashRoutine (void* arg) { // arg is a pointer to a pointer to a PCArg1 
             break;
         }
 
-        bufHash = buffer1[curSize1-1];
+        //bufHash = buffer1[curSize1-1];
         curSize1--;
 
         pthread_mutex_unlock(&(rArg1->mutex));
@@ -243,12 +243,11 @@ void* revHashRoutine (void* arg) { // arg is a pointer to a pointer to a PCArg1 
 
 
         printf("4\n");
-        bool success = reversehash(bufHash, hashResult, 16);
-        printf("4.5\n");
-        if(!success) {
-            fprintf(stderr, "error while reversing hash");
-        }
-        printf("5\n");
+        //bool success = reversehash(bufHash, hashResult, 16);
+       // if(!success) {
+         //   fprintf(stderr, "error while reversing hash");
+        //}
+        char *hashResult = "testo";
         sem_wait(&(rArg2->empty)); //waiting for a free slot
         pthread_mutex_lock(&(rArg2->mutex));
 
@@ -259,10 +258,12 @@ void* revHashRoutine (void* arg) { // arg is a pointer to a pointer to a PCArg1 
         pthread_mutex_unlock(&(rArg2->mutex));
         sem_post(&(rArg2->full)); //one more filled spot
     }
+    printf("on arrive ici ?\n");
     pthread_mutex_lock(&mut);
 
     // critical section
     countRevThreadOver++;
+    printf("revTOver : %d\n", countRevThreadOver);
     sem_post(&revOver);
 
     pthread_mutex_unlock(&mut);
@@ -277,12 +278,13 @@ void* consumer (void* arg) {
     PCArg1 *rArg = (PCArg1*) arg;
     while(true)
     {
+        printf("one more loop in the consumer thread\n");
         if (readFlag) {
             pthread_mutex_lock(&(rArg->mutex));
             if(curSize2 == 0) {
                 pthread_mutex_unlock(&(rArg->mutex));
+                sem_wait(&revOver);
                 pthread_mutex_lock(&mut);
-                sem_wait(&revOver); // not necessarily as much update as revhash
                 if (countRevThreadOver == nbThread) {
                     pthread_mutex_unlock(&mut);
                     goto TAG;
@@ -295,6 +297,7 @@ void* consumer (void* arg) {
         pthread_mutex_lock(&(rArg->mutex));
 
         // section critique
+        printf("on va update avec caaaaaaaaaaaaaaaaaa : %s\n", buffer2[curSize2-1]);
         update_candidate(buffer2[curSize2-1]);
         curSize2--;
 
@@ -372,8 +375,8 @@ int main(int argc, char *argv[]) { // problem : the structure pointer argument d
     printf("post read thread\n");
 
     for (int i = 0; i < nbThread; i++) {
-        pthread_t threadT;
-        pthread_create(&threadT, NULL, revHashRoutine, revRoutine);
+        pthread_t *threadT = malloc(sizeof(pthread_t));
+        pthread_create(threadT, NULL, revHashRoutine, revRoutine);
         printf("post create rev #%d\n", i);
     }
     printf("post rev threads\n");
