@@ -7,7 +7,7 @@
 #include <pthread.h>
 #include <semaphore.h>
 #include <errno.h>
-
+#include <getopt.h>
 
 #include "sha256.h"
 #include "reverse.h"
