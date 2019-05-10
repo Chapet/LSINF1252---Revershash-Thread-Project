@@ -1,5 +1,3 @@
-default: cracker
-
 CC = gcc
 CFLAGS =-Wall -Werror -pthread -std=c99 -g
 
@@ -16,57 +14,53 @@ src/sha256.o: src/sha256.c src/sha256.h
 	$(CC) $(CFLAGS) -o src/sha256.o -c src/sha256.c
 
 all:
-    cracker
+	make
+	tests
 
 tests:
+	# code bash pour tester l'initialisation.
 
-    # code bash pour tester l'initialisation.
+	$(CC) $(CFLAGS) -o tests/prog tests/test_initialisation.c
 
-    gcc -o prog $(CFLAGS)$ test_initialisation.c
+	echo Maintenant testons sans argument, puis avec.
 
-    echo Maintenant testons sans argument, puis avec.
+	./tests/prog
 
-    ./prog
+	./tests/prog -c
 
-    ./prog -c
+	./tests/prog -t 4
 
-    ./prog -t 4
+	./tests/prog -o filename
 
-    ./prog -o filename
+	./tests/prog -c -t 8 -o filename
 
-    ./prog -c -t 8 -o filename
+	./tests/prog -r
 
-    ./prog -r
+	echo Maintenant les tests CUnit.
 
-    /////////
+	$(CC) $(CFLAGS) -o tests/progtest src/cracker.o tests/CUnit.c -lcunit
 
-    echo Maintenant les tests CUnit.
+	./tests/progtest
 
-    gcc -o progtest $(CFLAGS)$ cracker.o CUnit.c -lcunit
+	# code bash pour tester le code en entier (peut-être mettre des echos pour dire quoi test quoi).
 
-    ./progtest
+	echo Maintenant passons au test du code en entier.
 
-    /////////
+	./src/cracker  bin160o.bin
 
-    # code bash pour tester le code en entier (peut-être mettre des echos pour dire quoi test quoi).
+	./src/cracker -c bin16o.bin
 
-    echo Maintenant passons au test du code en entier.
+	./src/cracker bin32ko.bin
 
-    ./cracker  bin160o.bin
+	./src/cracker -t 50 bin32ko.bin
 
-    ./cracker -c bin16o.bin
+	./src/cracker -c -t 50 -o fichiersortie.txt bin32ko.bin
 
-    ./cracker bin32ko.bin
+	cat fichiersortie.txt
 
-    ./cracker -t 50 bin32ko.bin
+	./src/cracker -t 50 -o fichiersortie2.txt bin160o.bin bin32ko.bin
 
-    ./cracker -c -t 50 -o fichiersortie.txt bin32ko.bin
-    cat fichiersortie.txt
-
-    ./cracker -t 50 -o fichiersortie2.txt bin160o.bin bin32ko.bin
-    cat fichiersortie2.txt
-
-    ///////////
+	cat fichiersortie2.txt
 
 .PHONY: clean tests
 
