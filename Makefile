@@ -3,8 +3,6 @@ default: cracker
 CC = gcc
 CFLAGS =-Wall -Werror -pthread -std=c99 -g
 
-CFiles =
-
 src/cracker: src/cracker.o src/reverse.o src/sha256.o
 	$(CC) $(CFLAGS) -o src/cracker src/cracker.o src/reverse.o src/sha256.o
 
@@ -23,6 +21,7 @@ all:
 tests:
 
     # code bash pour tester l'initialisation.
+
     gcc -o prog $(CFLAGS)$ test_initialisation.c
 
     echo Maintenant testons sans argument, puis avec.
