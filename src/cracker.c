@@ -12,6 +12,8 @@
 #include "sha256.h"
 #include "reverse.h"
 
+#define printf(fmt, ...) do { printf(fmt, ##__VA_ARGS__); fflush(stdout); } while(0)
+
 //def of global variables and structures
 typedef struct Candidate {
     struct Candidate *next;
@@ -121,13 +123,15 @@ char *writeOutput() { //no need to free the element of the linked list : when th
 /* pre: bufread, an uint8 array, fileInput, an array of string containing the names of the input names
  * post: browse trough all the input file(s) and saves all of the data read
  */
-void *produce(uint8_t *bufread, char *fileInput[]) { //not thread-safe
+void *produce(uint8_t *bufread, char **fileInput) { //not thread-safe
+    printf("curInputFile : %d, nbInputFile : %d\n", curInputFile, nbInputFile);
     //if not no file descriptor is set, either the first or the next input file is opened and read
     while (fdInput == NULL) { //the while is used instead of an if to handle the empty files issue
+        printf("fdInput == NULL while loop\n");
         if (curInputFile == nbInputFile) { //all the input files have been read
             int c = fclose(fdInput);
             if (c != 0) {
-                fprintf(stderr, "1error while closing input file : %d\n", errno);
+                fprintf(stderr, "error while closing input file (1): %d\n", errno);
             }
             fdInput = NULL;
             curInputFile++; //curInputFile == nbInputFile + 1, serves as a flag that the input handling is over
@@ -135,16 +139,22 @@ void *produce(uint8_t *bufread, char *fileInput[]) { //not thread-safe
         } else if (curInputFile > nbInputFile) {
             return NULL;
         } else { //the new input file is opened
+            printf("%d\n", curInputFile);
+            printf("fileInput[%d] = %s\n", curInputFile, fileInput[curInputFile]);
             fdInput = fopen(fileInput[curInputFile], "r");
             printf("file opened\n");
         }
     }
 
     int r = fread(bufread, 32, 1, fdInput);
+    for (int i = 0; i < 32; ++i) {
+        printf("%d", bufread[i]);
+    } printf("\n");
     if (r == 0) { //eof
+        printf("producer r == 0\n");
         int c = fclose(fdInput);
         if (c != 0) {
-            fprintf(stderr, "2error while closing input file : %d\n", errno);
+            fprintf(stderr, "2 : error while closing input file (2): %d\n", errno);
         }
         fdInput = NULL;
         curInputFile++;
@@ -158,7 +168,7 @@ void *produce(uint8_t *bufread, char *fileInput[]) { //not thread-safe
 /* pre : arg contains a pointer to a PCArg1 struct
  * post : the produce function is called and the 32 bytes read from the file are added into the first buffer
  */
-void* producer (void* arg){
+void *producer (void *arg){
     PCArg1 *rArg = (PCArg1*) arg;
      while(1)
     {
@@ -166,23 +176,31 @@ void* producer (void* arg){
 
         produce(bufread, rArg->fileInput);
         if (fdInput == NULL) {
+            printf("fdInput == NULL => readFlag = true + break\n");
             readFlag = true;
             break;
         }
+        int *testint = malloc(sizeof(int));
+        sem_getvalue(&(rArg->empty), testint);
+        printf("sem value : %d\n", *testint);
+
         sem_wait(&(rArg->empty)); //waiting for a free buffer slot
         pthread_mutex_lock(&(rArg->mutex));
 
         //critical section
         buffer1[curSize1] = bufread; //insert item into the list
+        printf("on affiche buffer[%d] : \n", curSize1);
         for (int i = 0; i < 32; i++){
             printf("%d", buffer1[curSize1][i]);
         }
         printf("\n");
-
         curSize1++;
 
         pthread_mutex_unlock(&(rArg->mutex));
         sem_post(&(rArg->full)); //one more filled spot
+    }
+    for (int i = 0; i < nbThread; ++i) {
+        sem_post(&(rArg->full));
     }
      return NULL;
 }
@@ -191,6 +209,7 @@ void* producer (void* arg){
  * post: takes a hash from the first buffer, reverses it then places it in the second buffer
  */
 void* revHashRoutine (void* arg) { // arg is a pointer to a pointer to a PCArg1 structure (an array of 2 pointer for the 2 producer/consumer)
+    printf("revHashRoutine ENTER\n");
     PCArg1 **rArg = (PCArg1**) arg;
     PCArg1 *rArg1 = (PCArg1*) rArg[1];
     PCArg1 *rArg2 = (PCArg1*) rArg[2];
@@ -198,27 +217,38 @@ void* revHashRoutine (void* arg) { // arg is a pointer to a pointer to a PCArg1 
 
     while(true)
     {
+        printf("Revhashroutine While loop\n");
+        printf("curSize1 :  %d\n", curSize1);
+        printf("flag = %d\n", readFlag);
+        fflush(stdout);
         char *hashResult = malloc(16* sizeof(char));
 
         sem_wait(&(rArg1->full)); //waiting for a filled spot
         pthread_mutex_lock(&(rArg1->mutex));
 
+        printf("section critique du thread nr 2\n");
         //critical section
-        if(readFlag && curSize1 == 0) {
+        if(readFlag && (curSize1 == 0)) {
+            printf("entered condition\n");
+            fflush(stdout);
             pthread_mutex_unlock(&(rArg1->mutex));
             break;
         }
-        bufHash = buffer1[curSize1];
+
+        bufHash = buffer1[curSize1-1];
         curSize1--;
 
         pthread_mutex_unlock(&(rArg1->mutex));
         sem_post(&(rArg1->empty)); //one more free slot
 
-        bool succes = reversehash(bufHash, hashResult, 16);
-        if(!succes) {
+
+        printf("4\n");
+        bool success = reversehash(bufHash, hashResult, 16);
+        printf("4.5\n");
+        if(!success) {
             fprintf(stderr, "error while reversing hash");
         }
-
+        printf("5\n");
         sem_wait(&(rArg2->empty)); //waiting for a free slot
         pthread_mutex_lock(&(rArg2->mutex));
 
@@ -243,6 +273,7 @@ void* revHashRoutine (void* arg) { // arg is a pointer to a pointer to a PCArg1 
  * post: takes a reversed hash (string) from the second buffer and uses it to update the linked list
  */
 void* consumer (void* arg) {
+    printf("ENTER consumer\n");
     PCArg1 *rArg = (PCArg1*) arg;
     while(true)
     {
@@ -259,11 +290,12 @@ void* consumer (void* arg) {
             }
             pthread_mutex_unlock(&(rArg->mutex));
         }
+
         sem_wait(&(rArg->full)); //waiting for a filled slot
         pthread_mutex_lock(&(rArg->mutex));
 
         // section critique
-        update_candidate(buffer2[curSize2]);
+        update_candidate(buffer2[curSize2-1]);
         curSize2--;
 
         pthread_mutex_unlock(&(rArg->mutex));
@@ -275,8 +307,9 @@ void* consumer (void* arg) {
     return NULL;
 }
 
-int main(int argc, char *argv[]) {
+int main(int argc, char *argv[]) { // problem : the structure pointer argument doesn't seem to be passed on correctly
 
+    printf("first print\n");
     int notInputFiles = 1; //used to know the number of input files, the 1 is due to argv[0]
     pthread_mutex_init(&(mut) , NULL);
     sem_init(&revOver, 0, -nbThread);
@@ -285,7 +318,7 @@ int main(int argc, char *argv[]) {
     // we first initialise the global variables with the getopt() function
     int opt = 0;
     while ((opt = getopt(argc, argv, "t:co:")) != -1) {
-        switch (opt) { // NOLINT(hicpp-multiway-paths-covered)
+        switch (opt) { // NOLINT(hicpp-multiway-paths-covered) -> (to prevent a WARNING)
             case 't' :
                 notInputFiles += 2;
                 nbThread = atoi(optarg); //if we do a cast, we get values from the ASCII table, which is not what we want NOLINT(cert-err34-c)
@@ -303,58 +336,53 @@ int main(int argc, char *argv[]) {
                 break;
         }
     }
-    printf("test early :\n");
+    printf("post getopt function\n");
 
-
-    printf("1\n");
     //stocking the input files in a string array
     nbInputFile = argc - notInputFiles;
 
-    printf("2\n");
     //creating the struct passed as argument to the reading thread
     PCArg1 *readArg = malloc(sizeof(PCArg1));
     readArg->fileInput = malloc(nbInputFile*sizeof(char*));
-    for(int i = 0; i < nbInputFile; i++)
+    for (int i = 0; i < nbInputFile; i++) {
         readArg->fileInput[i] = argv[i + notInputFiles];
-    printf("2.5\n");
+        printf("fileInput[%d] = %s\n", i, readArg->fileInput[i]);
+    }
     pthread_mutex_init (&(readArg->mutex) , NULL);
     sem_init (&(readArg->empty) , 0 , nbThread*2);
     sem_init (&(readArg->full) , 0 , 0);
 
-    printf("3\n");
     PCArg1 *updateArg = malloc(sizeof(PCArg1));
+    updateArg->fileInput = NULL;
     pthread_mutex_init (&(updateArg->mutex) , NULL);
     sem_init (&(updateArg->empty) , 0 , nbThread*2);
     sem_init (&(updateArg->full) , 0 , 0);
 
-    printf("4\n");
-    PCArg1 **revRoutine = malloc(2*sizeof(PCArg1));
+    PCArg1 **revRoutine = malloc(2*sizeof(PCArg1*));
     revRoutine[1] = readArg;
     revRoutine[2] = updateArg;
 
-    printf("5\n");
     buffer1 = malloc(2*nbThread*sizeof(uint8_t*));
-    printf("6\n");
     buffer2 = malloc(2*nbThread*sizeof(char*));
-    printf("7\n");
+
+    printf("pre-thread launch\n");
 
     pthread_t readingT;
-    pthread_create(&readingT, NULL, producer(&readArg), NULL);
+    pthread_create(&readingT, NULL, producer, readArg);
+    printf("post read thread\n");
 
     for (int i = 0; i < nbThread; i++) {
         pthread_t threadT;
-        pthread_create(&threadT, NULL, revHashRoutine(&revRoutine), NULL);
+        pthread_create(&threadT, NULL, revHashRoutine, revRoutine);
+        printf("post create rev #%d\n", i);
     }
+    printf("post rev threads\n");
 
     pthread_t updateT;
-    pthread_create(&updateT, NULL, consumer(&updateArg), NULL);
+    pthread_create(&updateT, NULL, consumer, updateArg);
+    printf("post update threads\n");
 
-    //tests during coding
-    printf("Test starto !\n");
-
-    printf("Test complete !\n");
-
-    sem_wait(&crackerOver);
+    sem_wait(&crackerOver); //waits the end of the updateT thread
 
     //output : the string containing all the password (one on each line) is obtained, then it is printed on the correct output stream
     char *stringOut = writeOutput();
