@@ -22,10 +22,10 @@ typedef struct ProdConsArg1 {
     pthread_mutex_t mutex;
     sem_t empty;
     sem_t full;
-    char *fileInput[];
+    char **fileInput;
 } PCArg1;
 
-int nbThread = 1; //the number of threads used to parallelize the reversal of the hashs
+int nbThread = 1; //the number of threads used to parallelize the reversal of the hash(s)
 char consonant_or_vowel = 'v'; //v for vowel, c for consonant
 char *fileOutput = NULL; //the possible output file, also used to know if the output is specified
 int nbInputFile;
@@ -69,7 +69,8 @@ int listSize() { //à remplacer avec une fonction qui calcule le nb de char
     Candidate *next = head;
 
     while (next != NULL) {
-        size++;
+        size += strlen(next->password);//adds the number of char in the string
+        size += 2; //adds the next line memory space
         next = next->next;
     }
     return size;
@@ -77,7 +78,6 @@ int listSize() { //à remplacer avec une fonction qui calcule le nb de char
 
 /*pre: head != NULL, head->password != NULL, pwd != NULL
  *post: Checks if a password is the be added to the list of candidates by comparing his length to to the current candidates length.
- *
  *If the password's length is greater, the current list is replaced with a list containing only this password as candidate.
  *Else if the password's length is identical, the password is added to the list of candidates
  *Else (the password's length is shorter), the password is not added and thus the list stays unchanged.*/
@@ -106,7 +106,7 @@ char *writeOutput() { //no need to free the element of the linked list : when th
         fprintf(stderr, "error while extracting passwords out of linked list (pointer or struct value NULL)\n");
         return NULL;
     }
-    char *strOut = malloc(listSize() * 18 * sizeof(char)); //the password has a maximum length of 16 letters + the line feed (2 bytes)
+    char *strOut = malloc(listSize()* sizeof(char)); //the password has a maximum length of 16 letters + the line feed (2 bytes)
     Candidate *next = head;
 
     while (next != NULL) {
@@ -181,14 +181,14 @@ void* producer (void* arg){
 
         curSize1++;
 
-        pthread_mutex_unlock((&rArg->mutex));
+        pthread_mutex_unlock(&(rArg->mutex));
         sem_post(&(rArg->full)); //one more filled spot
     }
      return NULL;
 }
 
-/* pre:
- * post:
+/* pre: arg contains a pointer to a pointer of 2 PCArg1 struct
+ * post: takes a hash from the first buffer, reverses it then places it in the second buffer
  */
 void* revHashRoutine (void* arg) { // arg is a pointer to a pointer to a PCArg1 structure (an array of 2 pointer for the 2 producer/consumer)
     PCArg1 **rArg = (PCArg1**) arg;
@@ -239,8 +239,8 @@ void* revHashRoutine (void* arg) { // arg is a pointer to a pointer to a PCArg1 
     return NULL;
 } //consumer/producer
 
-/* pre:
- * post:
+/* pre: arg contains a pointer to a PCArg1 struct
+ * post: takes a reversed hash (string) from the second buffer and uses it to update the linked list
  */
 void* consumer (void* arg) {
     PCArg1 *rArg = (PCArg1*) arg;
@@ -276,6 +276,7 @@ void* consumer (void* arg) {
 }
 
 int main(int argc, char *argv[]) {
+
     int notInputFiles = 1; //used to know the number of input files, the 1 is due to argv[0]
     pthread_mutex_init(&(mut) , NULL);
     sem_init(&revOver, 0, -nbThread);
@@ -284,10 +285,10 @@ int main(int argc, char *argv[]) {
     // we first initialise the global variables with the getopt() function
     int opt = 0;
     while ((opt = getopt(argc, argv, "t:co:")) != -1) {
-        switch (opt) {
+        switch (opt) { // NOLINT(hicpp-multiway-paths-covered)
             case 't' :
                 notInputFiles += 2;
-                nbThread = atoi(optarg); //if we do a cast, we get values from the ASCII table, which is not what we want
+                nbThread = atoi(optarg); //if we do a cast, we get values from the ASCII table, which is not what we want NOLINT(cert-err34-c)
                 break;
             case 'c' :
                 notInputFiles++;
@@ -302,33 +303,40 @@ int main(int argc, char *argv[]) {
                 break;
         }
     }
+    printf("test early :\n");
 
+
+    printf("1\n");
     //stocking the input files in a string array
     nbInputFile = argc - notInputFiles;
-    char *fileInput[nbInputFile];
-    for (int i = 0; i < nbInputFile; i++) {
-        fileInput[i] = argv[i + notInputFiles];
-    }
 
+    printf("2\n");
     //creating the struct passed as argument to the reading thread
-    PCArg1 readArg;
+    PCArg1 *readArg = malloc(sizeof(PCArg1));
+    readArg->fileInput = malloc(nbInputFile*sizeof(char*));
     for(int i = 0; i < nbInputFile; i++)
-        readArg.fileInput[i] = fileInput[i];
-    pthread_mutex_init (&(readArg.mutex) , NULL);
-    sem_init (&(readArg.empty) , 0 , nbThread*2);
-    sem_init (&(readArg.full) , 0 , 0);
+        readArg->fileInput[i] = argv[i + notInputFiles];
+    printf("2.5\n");
+    pthread_mutex_init (&(readArg->mutex) , NULL);
+    sem_init (&(readArg->empty) , 0 , nbThread*2);
+    sem_init (&(readArg->full) , 0 , 0);
 
-    PCArg1 updateArg;
-    pthread_mutex_init (&(updateArg.mutex) , NULL);
-    sem_init (&(updateArg.empty) , 0 , nbThread*2);
-    sem_init (&(updateArg.full) , 0 , 0);
+    printf("3\n");
+    PCArg1 *updateArg = malloc(sizeof(PCArg1));
+    pthread_mutex_init (&(updateArg->mutex) , NULL);
+    sem_init (&(updateArg->empty) , 0 , nbThread*2);
+    sem_init (&(updateArg->full) , 0 , 0);
 
-    PCArg1 *revRoutine = malloc(2* sizeof(PCArg1));
+    printf("4\n");
+    PCArg1 **revRoutine = malloc(2*sizeof(PCArg1));
     revRoutine[1] = readArg;
     revRoutine[2] = updateArg;
 
+    printf("5\n");
     buffer1 = malloc(2*nbThread*sizeof(uint8_t*));
+    printf("6\n");
     buffer2 = malloc(2*nbThread*sizeof(char*));
+    printf("7\n");
 
     pthread_t readingT;
     pthread_create(&readingT, NULL, producer(&readArg), NULL);
