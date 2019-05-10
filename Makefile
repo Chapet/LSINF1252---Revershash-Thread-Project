@@ -15,7 +15,7 @@ src/sha256.o: src/sha256.c src/sha256.h
 
 all:
 	make
-	tests
+	make tests
 
 tests:
 	# code bash pour tester l'initialisation.
