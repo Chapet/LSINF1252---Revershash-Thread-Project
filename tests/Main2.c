@@ -9,9 +9,6 @@
 #include <errno.h>
 
 
-#include "sha256.h"
-#include "reverse.h"
-
 //def of global variables and structures
 typedef struct Candidate {
     struct Candidate *next;

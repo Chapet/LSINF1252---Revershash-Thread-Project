@@ -1,18 +1,8 @@
 #include <CUnit/CUnit.h>
 #include <CUnit/Basic.h>
-#include "../src/Main2.c"
+#include "../tests/Main2.c"
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <stdint.h>
-#include <string.h>
-#include <stdbool.h>
-#include <pthread.h>
-#include <semaphore.h>
-#include <errno.h>
-#include "sha256.h"
-#include "reverse.h"
+
 
 //--------------//
 
